@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// If you sometimes allow multiple providers(different OAuth services (Google, GitHub, Facebook, etc) per email, you may want email not unique and instead create a compound unique on (provider, oauthId).
+
+model User {
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  password String?
+  oauthId String? @unique
+  provider String? // e.g., 'google', 'github'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  chats Chat[]
+}
+
+
+model Chat{
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  message String
+  response String
+  createdAt DateTime @default(now())
+}
