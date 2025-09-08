@@ -3,13 +3,13 @@ import {Strategy as GoogleStrategy} from "passport-google-oauth20";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-console.log("Google ClientID:", process.env.OAUTH_CLIENT_ID);
-console.log(
-  "Google ClientSecret:",
-  process.env.OAUTH_CLIENT_SECRET ? "Loaded" : "Missing"
-);
-console.log("ClientID type:", typeof process.env.OAUTH_CLIENT_ID);
-console.log("ClientID length:", process.env.OAUTH_CLIENT_ID.length);
+// console.log("Google ClientID:", process.env.OAUTH_CLIENT_ID);
+// console.log(
+//   "Google ClientSecret:",
+//   process.env.OAUTH_CLIENT_SECRET ? "Loaded" : "Missing"
+// );
+// console.log("ClientID type:", typeof process.env.OAUTH_CLIENT_ID);
+// console.log("ClientID length:", process.env.OAUTH_CLIENT_ID.length);
 
 passport.use(
   new GoogleStrategy(
