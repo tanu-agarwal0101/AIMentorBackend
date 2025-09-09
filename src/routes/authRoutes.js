@@ -56,7 +56,8 @@ router.get(
       res.cookie("token", token, cookieOptions)
     //   console.log(req.user.email)
       // res.redirect(`${process.env.FRONTEND_URL}/chat`);
-      res.redirect(`http://localhost:5000/api/auth/success`);
+    // res.redirect(`http://localhost:5000/api/auth/success`);
+    res.redirect(`http://localhost:3000/profile`);
   }
 );
 router.get("/success", (req, res) => {
@@ -65,7 +66,11 @@ router.get("/success", (req, res) => {
 
 
 router.post("/logout", (req, res) => {
-    res.clearCookie("token")
+  res.clearCookie("token", {
+    ...cookieOptions,
+    maxAge: undefined,
+  });
+  console.log("done logout")
     res.json({message: 'Logout successful'})
 })
 export default router;

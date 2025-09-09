@@ -5,7 +5,7 @@ import { getProfile, updateProfile } from "../controllers/userController.js";
 
 const router = Router();
 
-router.post("/me", authenticateJWT, getProfile);
+router.get("/me", authenticateJWT, getProfile);
 router.put("/edit", authenticateJWT, updateProfile);
 
 export default router;
