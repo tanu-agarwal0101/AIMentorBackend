@@ -2,7 +2,7 @@ import dotenv from "dotenv"
 dotenv.config();
 import express from "express"
 import cors from "cors"
-import { authRoutes, chatRoutes } from "./routes/index.js";
+import { authRoutes, chatRoutes, userRoutes } from "./routes/index.js";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "./utils/passport.js";
@@ -31,6 +31,7 @@ app.use(
 )
 app.use('/api/auth', authRoutes)
 // app.use("/api/chat", chatRoutes)
+app.use('/api/user', userRoutes)
 
 app.use(passport.initialize())
 app.use(passport.session())
