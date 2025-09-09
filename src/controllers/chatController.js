@@ -23,8 +23,6 @@ const sendMessage = asyncHandler(async (req, res) => {
     res.status(201).json(chat)
 })
 
-
-
 const getChatHistory = asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
@@ -36,8 +34,6 @@ const getChatHistory = asyncHandler(async (req, res) => {
     
     res.status(200).json(chats)
 })
-
-
 
 export {
     sendMessage, getChatHistory
