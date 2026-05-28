@@ -47,7 +47,7 @@ router.get(
     failureRedirect: "/login",
   }),
   (req, res) => {
-    // successful login
+
     const payload = { id: req.user.id, email: req.user.email };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "10d",
@@ -57,7 +57,7 @@ router.get(
     //   console.log(req.user.email)
       // res.redirect(`${process.env.FRONTEND_URL}/chat`);
     // res.redirect(`http://localhost:5000/api/auth/success`);
-    res.redirect(`http://localhost:3000/profile`);
+    res.redirect(`http://localhost:3000/dashboard`);
   }
 );
 router.get("/success", (req, res) => {

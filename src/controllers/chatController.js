@@ -4,7 +4,7 @@ import { getAIResponse } from "../services/aiService.js";
 
 const prisma = new PrismaClient
 
-// After MVP is working, switch to Socket.IO → you’ll just move the sendMessage + getChatHistory logic into sockets.
+
 const sendMessage = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const { message } = req.body;
@@ -35,6 +35,13 @@ const getChatHistory = asyncHandler(async (req, res) => {
     res.status(200).json(chats)
 })
 
+
+
+
+const createConvo = asyncHandler(async(req, res)=> {
+    const userId = req.user.id;
+    
+})
 export {
     sendMessage, getChatHistory
 }
