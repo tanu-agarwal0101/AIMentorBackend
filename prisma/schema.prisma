@@ -16,24 +16,180 @@ datasource db {
 
 // If you sometimes allow multiple providers(different OAuth services (Google, GitHub, Facebook, etc) per email, you may want email not unique and instead create a compound unique on (provider, oauthId).
 
+// model User {
+//   id            String          @id @default(uuid())
+//   name          String
+//   email         String          @unique
+//   password      String?
+//   oauthId       String?         @unique
+//   provider      String?         // e.g., 'google', 'github'
+//   createdAt     DateTime        @default(now())
+//   updatedAt     DateTime        @updatedAt
+
+//   // One-to-many: User → Conversations
+//   conversations Conversation[]
+// }
+
+// model Conversation {
+//   id        String   @id @default(uuid())
+//   userId    String
+//   user      User     @relation(fields: [userId], references: [id])
+//   title     String   @default("New Chat")
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   chats     Chat[]
+// }
+
+// model Chat {
+//   id             String        @id @default(uuid())
+//   conversationId String
+//   conversation   Conversation  @relation(fields: [conversationId], references: [id])
+//   message        String        // user’s input
+//   response       String        // AI’s reply
+//   createdAt      DateTime      @default(now())
+// }
+
+
 model User {
-  id String @id @default(uuid())
-  name String
-  email String @unique
-  password String?
-  oauthId String? @unique
-  provider String? // e.g., 'google', 'github'
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  chats Chat[]
+  id            String         @id @default(uuid())
+  name          String?
+  email         String         @unique
+  password      String?
+  oauthId       String?        @unique
+  provider      String?         // 'google', 'github', ...
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  conversations Conversation[]
+  codingSessions CodingSession[]
+  feedbacks      Feedback[]
+  systemEvents   SystemEvent[]
 }
 
+model Conversation {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String?   @default("New Chat")
+  visibility String    @default("private") // optional: 'private'|'shared'
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-model Chat{
-  id String @id @default(uuid())
-  userId String
-  user User @relation(fields: [userId], references: [id])
-  message String
-  response String
+  messages   Message[]
+
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role           String    // "system" | "user" | "assistant" | "tool"
+  content        String    // the actual text
+  status         String?   // "complete" | "streaming" | "failed"
+  parentId       String?   // optional: if this message replies to another message
+  tokensUsed     Int?      // optional token accounting for this message/response
+  metadata       Json?     // optional misc (tool output, source, etc.)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Problem {
+  id                 String          @id @default(uuid())
+  title              String
+  slug               String          @unique
+  difficulty         String          // "Easy" | "Medium" | "Hard"
+  description        String          @db.Text
+  constraints        String[]        // String array for PostgreSQL constraints
+  category           String
+  topicTags          String[]
+  boilerplate        Json            // Keyed by language: { "python": "...", "javascript": "...", ... }
+  difficultyEstimate String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  testCases          TestCase[]
+  sessions           CodingSession[]
+}
+
+model TestCase {
+  id             String   @id @default(uuid())
+  problemId      String
+  problem        Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  input          String   @db.Text
+  expectedOutput String   @db.Text
+  isHidden       Boolean  @default(false)
+}
+
+model CodingSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId   String
+  problem     Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  mode        String   // "Guided Practice" | "Real Interview" | "Timed Contest" | "Debugging Mode" | "Optimization Challenge"
+  language    String   // "python" | "javascript" | "typescript" | "java" | "cpp"
+  progress    Int      @default(0)
+  codeDraft   String   @default("") @db.Text
+  chatHistory Json     @default("[]") // Array of chat messages
+  codyMemory  Json?    // Hints used count, repeated mistakes, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions Submission[]
+  reviews     InterviewReview[]
+}
+
+model Submission {
+  id              String        @id @default(uuid())
+  sessionId       String
+  session         CodingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  code            String        @db.Text
+  language        String
+  status          String        // "ACCEPTED" | "WRONG_ANSWER" | "COMPILE_ERROR" | "RUNTIME_ERROR" | "TIME_LIMIT_EXCEEDED"
+  runtime         Int?          // runtime in milliseconds
+  passedCount     Int
+  totalCount      Int
+  executionSource String?       @default("PISTON")
+  executionReliable Boolean?      @default(true)
+  createdAt       DateTime      @default(now())
+}
+
+model InterviewReview {
+  id             String        @id @default(uuid())
+  sessionId      String        @unique
+  session        CodingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  overallScore   Float
+  scores         Json          // Readability, Optimization, Edge cases, etc.
+  summary        String        @db.Text
+  strengths      String[]
+  weaknesses     String[]
+  roadmapInsights Json?
+  createdAt      DateTime      @default(now())
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?
+  prompt    String   // e.g. "Cody Hint Helpfulness" | "AI Review Accuracy"
+  source    String   // "cody_hint", "ai_review", "weekly_coach", "problem_recommendation"
+  rating    String   // "HELPFUL" | "UNHELPFUL" or rating scale
+  comment   String?  @db.Text
   createdAt DateTime @default(now())
 }
+
+model SystemEvent {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType    String   // "session_started" | "submission_attempted" | "hint_requested" | "optimization_improved" | "problem_completed" | "review_generated"
+  eventVersion String   @default("v1")
+  sessionId    String?
+  metadata     Json?    // custom metadata payload
+  createdAt    DateTime @default(now())
+}
+
