@@ -26,7 +26,6 @@ export async function getAIResponse(message, socketId) {
   }
 }
 
-// add send history for context
 export async function getAIResponseOpenAI(message) {
   try {
     const response = await openai.chat.completions.create({
