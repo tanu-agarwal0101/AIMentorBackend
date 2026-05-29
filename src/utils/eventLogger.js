@@ -1,4 +1,5 @@
 import prisma from "./prisma.js";
+import { processEvent } from "../services/achievementService.js";
 
 /**
  * Persists a lightweight system event log to the database.
@@ -20,10 +21,14 @@ export async function logSystemEvent(userId, eventType, sessionId = null, metada
       }
     });
     console.log(`[EVENT LOGGED] Type: ${eventType} (ID: ${event.id}) for user ${userId}`);
+
+    processEvent(userId, eventType, { ...metadata, sessionId }).catch(err => {
+      console.error("Failed to process event in achievements engine:", err);
+    });
+
     return event;
   } catch (error) {
     console.error("Failed to log system event to DB:", error);
-    // Silent fail to prevent breaking normal application flow
     return null;
   }
 }

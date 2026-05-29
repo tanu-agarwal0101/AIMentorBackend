@@ -1,6 +1,7 @@
 import prisma from "../utils/prisma.js";
 import { generateRoadmap } from "../services/roadmapGeneratorService.js";
 import { editRoadmap } from "../services/roadmapEditorService.js";
+import { logSystemEvent } from "../utils/eventLogger.js";
 
 /**
  * Creates a new adaptive roadmap using Gemini and saves it in the database.
@@ -214,16 +215,26 @@ export async function toggleTaskCompletion(req, res) {
       }
     });
 
+    if (!!isCompleted) {
+      await logSystemEvent(userId, "task_completed", null, { taskId, taskTitle: task.title });
+    }
+
     const parentMilestoneId = task.milestoneId;
     const siblingTasks = await prisma.roadmapTask.findMany({
       where: { milestoneId: parentMilestoneId }
     });
     
     const milestoneCompleted = siblingTasks.length > 0 && siblingTasks.every(t => t.isCompleted);
+    const previouslyCompleted = task.milestone.isCompleted;
+
     await prisma.milestone.update({
       where: { id: parentMilestoneId },
       data: { isCompleted: milestoneCompleted }
     });
+
+    if (milestoneCompleted && !previouslyCompleted) {
+      await logSystemEvent(userId, "milestone_completed", null, { milestoneId: parentMilestoneId, milestoneTitle: task.milestone.title });
+    }
 
     const allRoadmapTasks = await prisma.roadmapTask.findMany({
       where: {
@@ -248,6 +259,10 @@ export async function toggleTaskCompletion(req, res) {
         status: progressPercentage === 100 ? "completed" : "active"
       }
     });
+
+    if (progressPercentage === 100 && updatedRoadmap.status === "completed") {
+      await logSystemEvent(userId, "roadmap_completed", null, { roadmapId, roadmapTitle: updatedRoadmap.title });
+    }
 
     return res.status(200).json({
       taskId,

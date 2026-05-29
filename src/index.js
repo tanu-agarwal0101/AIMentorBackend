@@ -11,6 +11,8 @@ import feedbackRoutes from "./routes/feedbackRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import roadmapRoutes from "./routes/roadmapRoutes.js";
+import achievementRoutes from "./routes/achievementRoutes.js";
+import { seedAchievementsAndBadges } from "./services/achievementService.js";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "./utils/passport.js";
@@ -47,6 +49,7 @@ app.use('/api/feedback', feedbackRoutes)
 app.use('/api/events', eventRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/roadmaps', roadmapRoutes)
+app.use('/api/achievements', achievementRoutes)
 
 app.use(passport.initialize())
 app.use(passport.session())
@@ -63,6 +66,8 @@ const io = new Server(server, {
 io.use(socketAuth)
 
 io.on("connection", (socket) => registerChatHandlers(io, socket))
+
+seedAchievementsAndBadges().then(() => console.log("[STARTUP] Achievements and Badges seeded/validated."));
 
 const PORT = process.env.PORT || 5000
 server.listen(PORT, ()=> console.log(`Server is running on port ${PORT}`))

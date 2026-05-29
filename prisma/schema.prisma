@@ -66,6 +66,21 @@ model User {
   feedbacks      Feedback[]
   systemEvents   SystemEvent[]
   roadmaps       Roadmap[]
+
+  // Achievement System Fields
+  xp                     Int                  @default(0)
+  lifetimeTasksCompleted Int                  @default(0)
+  lifetimeProblemsSolved Int                  @default(0)
+  lifetimeProjectsBuilt  Int                  @default(0)
+  lifetimeLearningMinutes Int                  @default(0)
+
+  // Achievement System Relations
+  achievements           AchievementProgress[]
+  badges                 Badge[]
+  timelineEvents         TimelineEvent[]
+  mentorRecognitions     MentorRecognition[]
+  milestoneCelebrations  MilestoneCelebration[]
+  xpTransactions         XPTransaction[]
 }
 
 model Conversation {
@@ -261,5 +276,162 @@ model RoadmapTask {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
+
+// Achievement System Enums
+enum AchievementCategory {
+  STREAK
+  ROADMAP
+  CODING
+  PROJECT
+  COMMUNITY
+  SPECIAL
+  LEARNING
+}
+
+enum AchievementRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum AchievementVisibility {
+  PUBLIC
+  HIDDEN
+}
+
+enum TimelineEventType {
+  ACHIEVEMENT
+  ROADMAP
+  PROJECT
+  STREAK
+  LEVEL_UP
+  CODING
+}
+
+enum XPTransactionSource {
+  TASK_COMPLETED
+  ACHIEVEMENT_UNLOCKED
+  BADGE_EVOLUTION
+  STREAK
+  ROADMAP_COMPLETION
+}
+
+// Achievement System Models
+model Achievement {
+  id           String                @id @default(uuid())
+  title        String                @unique
+  description  String
+  category     AchievementCategory
+  rarity       AchievementRarity
+  visibility   AchievementVisibility @default(PUBLIC)
+  icon         String                // Emoji or Lucide icon name
+  xpReward     Int                   @default(0)
+  maxProgress  Int                   @default(1)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  progressions AchievementProgress[]
+}
+
+model AchievementProgress {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId   String
+  achievement     Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  currentProgress Int         @default(0)
+  isUnlocked      Boolean     @default(false)
+  unlockedAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model Badge {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeType    String   // "STREAK" | "CODING" | "BUILDER"
+  currentStage Int      @default(1) // stageOrder (1 to 5)
+  unlockedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, badgeType])
+  @@index([userId])
+}
+
+model BadgeStage {
+  id          String    @id @default(uuid())
+  badgeType   String    // "STREAK" | "CODING" | "BUILDER"
+  stageOrder  Int       // 1, 2, 3, 4, 5
+  name        String    // e.g. "Spark", "Flame", etc.
+  requirement Float     // e.g. 3.0, 7.0, etc.
+  xpReward    Int       @default(0)
+  icon        String    // Emoji or Lucide icon name
+  description String
+  createdAt   DateTime  @default(now())
+
+  @@unique([badgeType, stageOrder])
+}
+
+model TimelineEvent {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  icon        String
+  category    String            // "STREAK" | "CODING" | "BUILDER" | ...
+  type        TimelineEventType
+  metadata    Json?             // Snapshot of metrics (XP, streak, stage)
+  eventDate   DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+
+  @@index([userId, eventDate])
+}
+
+model MentorRecognition {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message            String
+  relatedAchievement String?  // Optional name of related achievement
+  generatedAt        DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+}
+
+model MilestoneCelebration {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementName String
+  achievementIcon String
+  xpEarned        Int
+  statsSnapshot   Json     // { tasksCompleted: 47, projectsBuilt: 3, hoursInvested: 23 }
+  mentorMessage   String
+  isCelebrated    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, isCelebrated])
+}
+
+model XPTransaction {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  source    XPTransactionSource
+  metadata  Json?               // e.g. { taskId: "...", achievementId: "..." }
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+}
+
 
 
