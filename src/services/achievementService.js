@@ -131,7 +131,8 @@ export async function awardXP(userId, amount, source, metadata = {}) {
           icon: "⭐",
           category: "LEVEL_UP",
           type: "LEVEL_UP",
-          metadata: { level: newLevelInfo.level, totalXP: newXP, timestamp: new Date() }
+          metadata: { level: newLevelInfo.level, totalXP: newXP, timestamp: new Date() },
+          statsSnapshot: stats
         }
       });
 
@@ -202,6 +203,7 @@ export async function getUserStatsSnapshot(userId) {
     }
 
     return {
+      xp: user?.xp || 0,
       tasksCompleted: user?.lifetimeTasksCompleted || 0,
       problemsSolved: user?.lifetimeProblemsSolved || 0,
       projectsBuilt: user?.lifetimeProjectsBuilt || 0,
@@ -210,7 +212,7 @@ export async function getUserStatsSnapshot(userId) {
     };
   } catch (error) {
     console.error("Error creating user stats snapshot:", error);
-    return { tasksCompleted: 0, problemsSolved: 0, projectsBuilt: 0, hoursLearned: 0, currentStreak: 0 };
+    return { xp: 0, tasksCompleted: 0, problemsSolved: 0, projectsBuilt: 0, hoursLearned: 0, currentStreak: 0 };
   }
 }
 
@@ -302,6 +304,7 @@ export async function processEvent(userId, eventType, metadata = {}) {
           isCompleted: true
         }
       });
+      const stats = await getUserStatsSnapshot(userId);
       await prisma.timelineEvent.create({
         data: {
           userId,
@@ -314,7 +317,8 @@ export async function processEvent(userId, eventType, metadata = {}) {
             milestoneId: metadata?.milestoneId,
             milestoneTitle: metadata?.milestoneTitle,
             xpReward: 50
-          }
+          },
+          statsSnapshot: stats
         }
       });
 
@@ -338,6 +342,7 @@ export async function processEvent(userId, eventType, metadata = {}) {
       baseXP = 500;
       xpDetails = { roadmapTitle: metadata?.roadmapTitle || "Roadmap Completed", roadmapId: metadata?.roadmapId };
 
+      const stats = await getUserStatsSnapshot(userId);
       await prisma.timelineEvent.create({
         data: {
           userId,
@@ -350,7 +355,8 @@ export async function processEvent(userId, eventType, metadata = {}) {
             roadmapId: metadata?.roadmapId,
             roadmapTitle: metadata?.roadmapTitle,
             xpReward: 500
-          }
+          },
+          statsSnapshot: stats
         }
       });
 
@@ -380,6 +386,9 @@ export async function processEvent(userId, eventType, metadata = {}) {
       isMetricUpdate = true;
       baseXP = Math.round(minutes * 1.5);
       xpDetails = { durationMinutes: minutes };
+    } else if (eventType === "xp_boost") {
+      baseXP = parseInt(metadata?.xp) || 10000;
+      xpDetails = { note: "Sandbox XP Boost" };
     }
 
     if (isMetricUpdate) {
@@ -476,7 +485,8 @@ async function checkAndProgressAchievements(userId, stats) {
               streak: stats.currentStreak,
               problemsSolved: stats.problemsSolved,
               tasksCompleted: stats.tasksCompleted
-            }
+            },
+            statsSnapshot: stats
           }
         });
 
@@ -584,7 +594,8 @@ async function checkAndEvolveBadges(userId, stats) {
                 stageName: activeStage.name,
                 stageOrder: qualifiedStageOrder,
                 unlockedAt: new Date()
-              }
+              },
+              statsSnapshot: stats
             }
           });
 
@@ -678,7 +689,8 @@ export async function evaluateHiddenAchievements(userId, stats) {
               streak: stats.currentStreak,
               problemsSolved: stats.problemsSolved,
               tasksCompleted: stats.tasksCompleted
-            }
+            },
+            statsSnapshot: stats
           }
         });
 

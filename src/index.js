@@ -12,6 +12,7 @@ import eventRoutes from "./routes/eventRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import roadmapRoutes from "./routes/roadmapRoutes.js";
 import achievementRoutes from "./routes/achievementRoutes.js";
+import reflectionRoutes from "./routes/reflectionRoutes.js";
 import { seedAchievementsAndBadges } from "./services/achievementService.js";
 import cookieParser from "cookie-parser";
 import session from "express-session";
@@ -50,6 +51,7 @@ app.use('/api/events', eventRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/roadmaps', roadmapRoutes)
 app.use('/api/achievements', achievementRoutes)
+app.use('/api/reflections', reflectionRoutes)
 
 app.use(passport.initialize())
 app.use(passport.session())

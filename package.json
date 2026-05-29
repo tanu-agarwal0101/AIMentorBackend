@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "predev": "npx -y kill-port 5000",
     "dev": "nodemon src/index.js"
   },
   "keywords": [],

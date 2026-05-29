@@ -82,6 +82,9 @@ model User {
   milestoneCelebrations  MilestoneCelebration[]
   xpTransactions         XPTransaction[]
   showcases              UserAchievementShowcase[]
+  monthlyRecaps          MonthlyRecap[]
+  journeySummaries       JourneySummary[]
+  timeCapsules           TimeCapsule[]
 }
 
 model Conversation {
@@ -384,17 +387,18 @@ model BadgeStage {
 }
 
 model TimelineEvent {
-  id          String            @id @default(uuid())
-  userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  description String
-  icon        String
-  category    String            // "STREAK" | "CODING" | "BUILDER" | ...
-  type        TimelineEventType
-  metadata    Json?             // Snapshot of metrics (XP, streak, stage)
-  eventDate   DateTime          @default(now())
-  createdAt   DateTime          @default(now())
+  id            String            @id @default(uuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  icon          String
+  category      String            // "STREAK" | "CODING" | "BUILDER" | ...
+  type          TimelineEventType
+  metadata      Json?             // Snapshot of metrics (XP, streak, stage)
+  statsSnapshot Json?             // Precise stats at event time: { level, streak, tasks, problems }
+  eventDate     DateTime          @default(now())
+  createdAt     DateTime          @default(now())
 
   @@index([userId, eventDate])
 }
@@ -456,6 +460,64 @@ model UserAchievementShowcase {
   createdAt     DateTime         @default(now())
 
   @@index([userId, displayOrder])
+}
+
+enum JourneySummaryType {
+  MONTHLY
+  MILESTONE
+  ROADMAP_COMPLETION
+}
+
+model JourneySummary {
+  id                  String             @id @default(uuid())
+  userId              String
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  summary             String             @db.Text
+  strongestHabit      String
+  biggestGrowthArea   String
+  proudestAchievement String
+  summaryType         JourneySummaryType
+  periodStart         DateTime?
+  periodEnd           DateTime?
+  generatedAt         DateTime           @default(now())
+
+  @@index([userId])
+}
+
+model MonthlyRecap {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month                Int      // 1-12
+  year                 Int
+  tasksCompleted       Int      @default(0)
+  problemsSolved       Int      @default(0)
+  hoursLearned         Float    @default(0.0)
+  achievementsUnlocked Int      @default(0)
+  milestonesCompleted  Int      @default(0)
+  mentorSummary        String?  @db.Text
+  startSnapshot        Json?    // { level: Int, streak: Int, tasks: Int, problems: Int }
+  endSnapshot          Json?    // { level: Int, streak: Int, tasks: Int, problems: Int }
+  createdAt            DateTime @default(now())
+
+  @@unique([userId, month, year])
+  @@index([userId])
+}
+
+model TimeCapsule {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message          String    @db.Text
+  milestoneContext String
+  createdAt        DateTime  @default(now())
+  revealAt         DateTime
+  revealedAt       DateTime? // When background reflection is generated
+  openedAt         DateTime? // When user clicks to open
+  mentorReflection String?   @db.Text
+  statsSnapshot    Json?     // { level: Int, streak: Int, tasks: Int, problems: Int }
+
+  @@index([userId])
 }
 
 
