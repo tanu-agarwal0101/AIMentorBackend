@@ -1,5 +1,5 @@
 import prisma from "../utils/prisma.js";
-import { getLevelInfo, getUserStatsSnapshot, processEvent } from "../services/achievementService.js";
+import { getLevelInfo, getUserStatsSnapshot, processEvent, getUserShowcase, updateUserShowcase } from "../services/achievementService.js";
 
 /**
  * GET /api/achievements
@@ -79,23 +79,52 @@ export const getAchievementsDashboard = async (req, res) => {
     });
 
     const badgeTypes = ["STREAK", "CODING", "BUILDER"];
+    for (const type of badgeTypes) {
+      const userBadge = user.badges.find(b => b.badgeType === type);
+      if (!userBadge) {
+        const newBadge = await prisma.badge.upsert({
+          where: { userId_badgeType: { userId, badgeType: type } },
+          create: {
+            userId,
+            badgeType: type,
+            currentStage: 1
+          },
+          update: {}
+        });
+        user.badges.push(newBadge);
+      }
+    }
+
     const badgesData = badgeTypes.map(type => {
       const userBadge = user.badges.find(b => b.badgeType === type);
       const activeStageOrder = userBadge ? userBadge.currentStage : 1;
       
       const typeStages = badgeStages.filter(s => s.badgeType === type);
-      const currentStage = typeStages.find(s => s.stageOrder === activeStageOrder) || typeStages[0];
-      const nextStage = typeStages.find(s => s.stageOrder === activeStageOrder + 1);
+      const stage1 = typeStages.find(s => s.stageOrder === 1);
+      const stage1Requirement = stage1 ? stage1.requirement : 0;
 
       let currentMetricVal = 0;
       if (type === "STREAK") currentMetricVal = stats.currentStreak;
       else if (type === "CODING") currentMetricVal = stats.problemsSolved;
       else if (type === "BUILDER") currentMetricVal = stats.tasksCompleted;
 
-      const requirement = nextStage ? nextStage.requirement : currentStage.requirement;
+      const isUnlocked = currentMetricVal >= stage1Requirement;
+
+      let currentStage, nextStage, requirement;
+      if (!isUnlocked) {
+        currentStage = stage1 || typeStages[0];
+        nextStage = null;
+        requirement = stage1Requirement;
+      } else {
+        currentStage = typeStages.find(s => s.stageOrder === activeStageOrder) || typeStages[0];
+        nextStage = typeStages.find(s => s.stageOrder === activeStageOrder + 1);
+        requirement = nextStage ? nextStage.requirement : currentStage.requirement;
+      }
+
       const progressPercent = requirement > 0 ? Math.min(Math.round((currentMetricVal / requirement) * 100), 100) : 100;
 
       return {
+        id: userBadge?.id,
         badgeType: type,
         currentStage: activeStageOrder,
         stageName: currentStage ? currentStage.name : "Apprentice",
@@ -105,39 +134,47 @@ export const getAchievementsDashboard = async (req, res) => {
         nextStageRequirement: requirement,
         nextStageName: nextStage ? nextStage.name : null,
         progressPercent,
-        isMaxed: !nextStage
+        isMaxed: isUnlocked && !nextStage,
+        isUnlocked
       };
     });
 
     const achievements = await prisma.achievement.findMany({
-      where: { visibility: "PUBLIC" }
+      where: {
+        OR: [
+          { visibility: "PUBLIC" },
+          { visibility: "HIDDEN", progressions: { some: { userId, isUnlocked: true } } }
+        ]
+      }
     });
 
     const progressMap = new Map(user.achievements.map(p => [p.achievementId, p]));
 
-    const upNext = achievements
-      .map(ach => {
-        const prog = progressMap.get(ach.id);
-        const currentProgress = prog ? prog.currentProgress : 0;
-        const isUnlocked = prog ? prog.isUnlocked : false;
-        const progressPercent = ach.maxProgress > 0 ? Math.min(Math.round((currentProgress / ach.maxProgress) * 100), 100) : 0;
-        
-        return {
-          id: ach.id,
-          title: ach.title,
-          description: ach.description,
-          category: ach.category,
-          rarity: ach.rarity,
-          icon: ach.icon,
-          xpReward: ach.xpReward,
-          currentProgress,
-          maxProgress: ach.maxProgress,
-          progressPercent,
-          isUnlocked,
-          remaining: ach.maxProgress - currentProgress
-        };
-      })
-      .filter(item => !item.isUnlocked)
+    const achievementsList = achievements.map(ach => {
+      const prog = progressMap.get(ach.id);
+      const currentProgress = prog ? prog.currentProgress : 0;
+      const isUnlocked = prog ? prog.isUnlocked : false;
+      const unlockedAt = prog ? prog.unlockedAt : null;
+      const progressPercent = ach.maxProgress > 0 ? Math.min(Math.round((currentProgress / ach.maxProgress) * 100), 100) : 0;
+
+      return {
+        id: ach.id,
+        title: ach.title,
+        description: ach.description,
+        category: ach.category,
+        visibility: ach.visibility,
+        icon: ach.icon,
+        xpReward: ach.xpReward,
+        currentProgress,
+        maxProgress: ach.maxProgress,
+        progressPercent,
+        isUnlocked,
+        unlockedAt
+      };
+    });
+
+    const upNext = achievementsList
+      .filter(item => !item.isUnlocked && item.visibility === "PUBLIC")
       .sort((a, b) => b.progressPercent - a.progressPercent) 
       .slice(0, 4);
 
@@ -200,6 +237,49 @@ export const getAchievementsDashboard = async (req, res) => {
     const totalAchievementsCount = user.achievements.filter(p => p.isUnlocked).length;
     const daysSinceJoined = Math.max(1, Math.ceil((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
 
+    const showcaseData = await getUserShowcase(userId);
+    const sanitizedShowcase = showcaseData.map(item => {
+      const sanitized = {
+        id: item.id,
+        userId: item.userId,
+        type: item.type,
+        displayOrder: item.displayOrder,
+        createdAt: item.createdAt,
+      };
+      if (item.achievement) {
+        sanitized.achievement = {
+          id: item.achievement.id,
+          title: item.achievement.title,
+          description: item.achievement.description,
+          category: item.achievement.category,
+          visibility: item.achievement.visibility,
+          icon: item.achievement.icon,
+          xpReward: item.achievement.xpReward,
+        };
+      }
+      if (item.badge) {
+        const typeStages = badgeStages.filter(s => s.badgeType === item.badge.badgeType);
+        const currentStage = typeStages.find(s => s.stageOrder === item.badge.currentStage) || typeStages[0];
+
+        sanitized.badge = {
+          id: item.badge.id,
+          userId: item.badge.userId,
+          badgeType: item.badge.badgeType,
+          currentStage: item.badge.currentStage,
+          unlockedAt: item.badge.unlockedAt,
+          stageName: currentStage ? currentStage.name : "Apprentice",
+          icon: currentStage ? currentStage.icon : "🎖️",
+          description: currentStage ? currentStage.description : "",
+        };
+      }
+      return sanitized;
+    });
+
+    const allHiddenCount = await prisma.achievement.count({
+      where: { visibility: "HIDDEN" }
+    });
+    const unlockedHiddenCount = achievementsList.filter(a => a.visibility === "HIDDEN" && a.isUnlocked).length;
+
     return res.status(200).json({
       levelInfo,
       stats: {
@@ -212,7 +292,13 @@ export const getAchievementsDashboard = async (req, res) => {
       mentorRecognitions: mentorCards,
       pendingCelebrations: user.milestoneCelebrations,
       userJoinedDate: user.createdAt,
-      daysSinceJoined
+      daysSinceJoined,
+      achievements: achievementsList,
+      showcase: sanitizedShowcase,
+      secretStats: {
+        discovered: unlockedHiddenCount,
+        total: allHiddenCount
+      }
     });
 
   } catch (error) {
@@ -272,5 +358,74 @@ export const testTriggerEvent = async (req, res) => {
   } catch (error) {
     console.error("Error in testTriggerEvent:", error);
     return res.status(500).json({ error: "Failed to run test event trigger." });
+  }
+};
+
+export const getShowcase = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const showcaseData = await getUserShowcase(userId);
+    const badgeStages = await prisma.badgeStage.findMany({
+      orderBy: { stageOrder: "asc" }
+    });
+
+    const sanitized = showcaseData.map(item => {
+      const sanitizedItem = {
+        id: item.id,
+        userId: item.userId,
+        type: item.type,
+        displayOrder: item.displayOrder,
+        createdAt: item.createdAt,
+      };
+      if (item.achievement) {
+        sanitizedItem.achievement = {
+          id: item.achievement.id,
+          title: item.achievement.title,
+          description: item.achievement.description,
+          category: item.achievement.category,
+          visibility: item.achievement.visibility,
+          icon: item.achievement.icon,
+          xpReward: item.achievement.xpReward,
+        };
+      }
+      if (item.badge) {
+        const typeStages = badgeStages.filter(s => s.badgeType === item.badge.badgeType);
+        const currentStage = typeStages.find(s => s.stageOrder === item.badge.currentStage) || typeStages[0];
+
+        sanitizedItem.badge = {
+          id: item.badge.id,
+          userId: item.badge.userId,
+          badgeType: item.badge.badgeType,
+          currentStage: item.badge.currentStage,
+          unlockedAt: item.badge.unlockedAt,
+          stageName: currentStage ? currentStage.name : "Apprentice",
+          icon: currentStage ? currentStage.icon : "🎖️",
+          description: currentStage ? currentStage.description : "",
+        };
+      }
+      return sanitizedItem;
+    });
+
+    return res.status(200).json(sanitized);
+  } catch (error) {
+    console.error("Error in getShowcase controller:", error);
+    return res.status(500).json({ error: "Failed to retrieve showcase." });
+  }
+};
+
+export const updateShowcase = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pins } = req.body; 
+
+    if (!Array.isArray(pins)) {
+      return res.status(400).json({ error: "Invalid request payload. Expected 'pins' array." });
+    }
+
+    await updateUserShowcase(userId, pins);
+    return res.status(200).json({ success: true, message: "Showcase shelf updated successfully." });
+  } catch (error) {
+    console.error("Error in updateShowcase controller:", error);
+    return res.status(400).json({ error: error.message || "Failed to update showcase." });
   }
 };

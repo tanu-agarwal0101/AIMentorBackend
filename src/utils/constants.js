@@ -1,13 +1,13 @@
 export const ACHIEVEMENTS_SEED = [
   {
     title: "Consistent Learner",
-    description: "Maintained a 3-day coding streak.",
+    description: "Maintained a 2-day coding streak.",
     category: "STREAK",
     rarity: "COMMON",
     visibility: "PUBLIC",
     icon: "🔥",
     xpReward: 100,
-    maxProgress: 3
+    maxProgress: 2
   },
   {
     title: "Dedicated Habit",
@@ -53,13 +53,13 @@ export const ACHIEVEMENTS_SEED = [
   },
   {
     title: "Algorithm Apprentice",
-    description: "Solved 5 coding problems in the Arena.",
+    description: "Solved 4 coding problems in the Arena.",
     category: "CODING",
     rarity: "COMMON",
     visibility: "PUBLIC",
     icon: "🛡️",
     xpReward: 150,
-    maxProgress: 5
+    maxProgress: 4
   },
   {
     title: "Arena Challenger",
@@ -142,6 +142,39 @@ export const ACHIEVEMENTS_SEED = [
     icon: "👁️",
     xpReward: 2000,
     maxProgress: 100
+  },
+  {
+    title: "Night Owl",
+    description: "Submit code or tasks after midnight.",
+    category: "SPECIAL",
+    rarity: "RARE",
+    visibility: "HIDDEN",
+    icon: "🌙",
+    xpReward: 300,
+    maxProgress: 1,
+    hiddenCriteria: { rule: "MIDNIGHT_STREAK", value: 1 }
+  },
+  {
+    title: "Speed Runner",
+    description: "Demonstrated extreme task solving speed by solving 5 tasks in a single day.",
+    category: "SPECIAL",
+    rarity: "EPIC",
+    visibility: "HIDDEN",
+    icon: "⚡",
+    xpReward: 500,
+    maxProgress: 1,
+    hiddenCriteria: { rule: "SPEED_RUNNER", value: 5 }
+  },
+  {
+    title: "Overachiever",
+    description: "Maintained a high-performance streak of 7 consecutive roadmap tasks.",
+    category: "SPECIAL",
+    rarity: "LEGENDARY",
+    visibility: "HIDDEN",
+    icon: "🚀",
+    xpReward: 800,
+    maxProgress: 1,
+    hiddenCriteria: { rule: "PERFECT_WEEK", value: 7 }
   }
 ];
 

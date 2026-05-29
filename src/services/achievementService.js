@@ -4,17 +4,36 @@ import { ACHIEVEMENTS_SEED, BADGE_STAGES_SEED } from "../utils/constants.js";
 
 
 /**
- * Automatically seeds achievements and badge stages in the database if empty.
+ * Automatically seeds achievements and badge stages in the database if empty or missing.
  */
 export async function seedAchievementsAndBadges() {
   try {
-    const existingAchievementsCount = await prisma.achievement.count();
-    if (existingAchievementsCount === 0) {
-      console.log("[SEEDING] Seeding static achievements...");
-      await prisma.achievement.createMany({
-        data: ACHIEVEMENTS_SEED
+    console.log("[SEEDING] Seeding/Syncing achievements...");
+    for (const ach of ACHIEVEMENTS_SEED) {
+      await prisma.achievement.upsert({
+        where: { title: ach.title },
+        update: {
+          description: ach.description,
+          category: ach.category,
+          rarity: ach.rarity,
+          visibility: ach.visibility,
+          icon: ach.icon,
+          xpReward: ach.xpReward,
+          maxProgress: ach.maxProgress,
+          hiddenCriteria: ach.hiddenCriteria || null
+        },
+        create: {
+          title: ach.title,
+          description: ach.description,
+          category: ach.category,
+          rarity: ach.rarity,
+          visibility: ach.visibility,
+          icon: ach.icon,
+          xpReward: ach.xpReward,
+          maxProgress: ach.maxProgress,
+          hiddenCriteria: ach.hiddenCriteria || null
+        }
       });
-      console.log(`[SEEDING] Successfully seeded ${ACHIEVEMENTS_SEED.length} achievements.`);
     }
 
     const existingBadgeStagesCount = await prisma.badgeStage.count();
@@ -377,6 +396,7 @@ export async function processEvent(userId, eventType, metadata = {}) {
 
     await checkAndProgressAchievements(userId, stats);
     await checkAndEvolveBadges(userId, stats);
+    await evaluateHiddenAchievements(userId, stats);
 
   } catch (err) {
     console.error("Error in processEvent achievement controller:", err);
@@ -590,3 +610,210 @@ async function checkAndEvolveBadges(userId, stats) {
     console.error("Error in checkAndEvolveBadges:", err);
   }
 }
+
+/**
+ * Evaluates hidden achievements for a user based on their stats
+ */
+export async function evaluateHiddenAchievements(userId, stats) {
+  try {
+    const hiddenAchs = await prisma.achievement.findMany({
+      where: { visibility: "HIDDEN" }
+    });
+
+    const hiddenHandlers = {
+      MIDNIGHT_STREAK: (stats, value) => {
+        const currentHour = new Date().getHours();
+        return currentHour >= 0 && currentHour < 4;
+      },
+      SPEED_RUNNER: (stats, value) => {
+        return stats.tasksCompleted >= value;
+      },
+      PERFECT_WEEK: (stats, value) => {
+        return stats.currentStreak >= value;
+      }
+    };
+
+    for (const ach of hiddenAchs) {
+      if (!ach.hiddenCriteria) continue;
+      
+      const prog = await prisma.achievementProgress.findUnique({
+        where: { userId_achievementId: { userId, achievementId: ach.id } }
+      });
+
+      if (prog && prog.isUnlocked) continue;
+
+      const { rule, value } = ach.hiddenCriteria;
+      const handler = hiddenHandlers[rule];
+      
+      if (handler && handler(stats, value)) {
+        await prisma.achievementProgress.upsert({
+          where: { userId_achievementId: { userId, achievementId: ach.id } },
+          create: {
+            userId,
+            achievementId: ach.id,
+            currentProgress: ach.maxProgress,
+            isUnlocked: true,
+            unlockedAt: new Date()
+          },
+          update: {
+            currentProgress: ach.maxProgress,
+            isUnlocked: true,
+            unlockedAt: new Date()
+          }
+        });
+
+        console.log(`[HIDDEN ACHIEVEMENT UNLOCKED] '${ach.title}' for User ${userId}`);
+        await awardXP(userId, ach.xpReward, "ACHIEVEMENT_UNLOCKED", { achievementId: ach.id, achievementTitle: ach.title });
+
+        await prisma.timelineEvent.create({
+          data: {
+            userId,
+            title: ach.title,
+            description: ach.description,
+            icon: ach.icon,
+            category: ach.category,
+            type: "ACHIEVEMENT",
+            metadata: {
+              xpReward: ach.xpReward,
+              streak: stats.currentStreak,
+              problemsSolved: stats.problemsSolved,
+              tasksCompleted: stats.tasksCompleted
+            }
+          }
+        });
+
+        const congrats = `Secret Unlocked: '${ach.title}'! You earned ${ach.xpReward} XP. Your stats show ${stats.tasksCompleted} tasks done and ${stats.problemsSolved} coding problems solved. Outstanding discovery!`;
+
+        await prisma.milestoneCelebration.create({
+          data: {
+            userId,
+            achievementName: ach.title,
+            achievementIcon: ach.icon,
+            xpEarned: ach.xpReward,
+            statsSnapshot: stats,
+            mentorMessage: congrats,
+            isCelebrated: false
+          }
+        });
+
+        queueMentorRecognitionMessage(userId, ach.title, stats);
+      }
+    }
+  } catch (err) {
+    console.error("Error in evaluateHiddenAchievements:", err);
+  }
+}
+
+/**
+ * Gets the user's showcase shelf ordered by displayOrder
+ */
+export async function getUserShowcase(userId) {
+  try {
+    const showcases = await prisma.userAchievementShowcase.findMany({
+      where: { userId },
+      orderBy: { displayOrder: "asc" },
+      include: {
+        achievement: true,
+        badge: true
+      }
+    });
+
+    const stats = await getUserStatsSnapshot(userId);
+    const validShowcases = [];
+    const invalidIds = [];
+
+    for (const item of showcases) {
+      let isValid = true;
+      if (item.achievement) {
+        const prog = await prisma.achievementProgress.findFirst({
+          where: { userId, achievementId: item.achievement.id }
+        });
+        if (!prog || !prog.isUnlocked) isValid = false;
+      }
+      if (item.badge) {
+        const stages = await prisma.badgeStage.findMany({ where: { badgeType: item.badge.badgeType } });
+        const stage1 = stages.find(s => s.stageOrder === 1);
+        let currentVal = 0;
+        if (item.badge.badgeType === "STREAK") currentVal = stats.currentStreak;
+        else if (item.badge.badgeType === "CODING") currentVal = stats.problemsSolved;
+        else if (item.badge.badgeType === "BUILDER") currentVal = stats.tasksCompleted;
+
+        if (currentVal < (stage1 ? stage1.requirement : 0)) isValid = false;
+      }
+
+      if (isValid) {
+        validShowcases.push(item);
+      } else {
+        invalidIds.push(item.id);
+      }
+    }
+
+    if (invalidIds.length > 0) {
+      await prisma.userAchievementShowcase.deleteMany({
+        where: { id: { in: invalidIds } }
+      });
+      console.log(`[SHOWCASE CLEANUP] Silently removed ${invalidIds.length} unearned showcase items for User ${userId}`);
+    }
+
+    return validShowcases;
+  } catch (err) {
+    console.error("Error in getUserShowcase:", err);
+    return [];
+  }
+}
+
+/**
+ * Updates the user's showcase shelf using delete-then-create transaction
+ */
+export async function updateUserShowcase(userId, pins) {
+  if (pins.length > 4) {
+    throw new Error("Maximum 4 showcase items allowed");
+  }
+
+  const ids = pins.map(p => `${p.type}-${p.id}`);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Duplicate showcase items detected");
+  }
+
+  for (const pin of pins) {
+    if (pin.type === "ACHIEVEMENT") {
+      const ach = await prisma.achievement.findUnique({ where: { id: pin.id } });
+      if (!ach) throw new Error(`Achievement with id ${pin.id} not found`);
+    } else if (pin.type === "BADGE") {
+      const badge = await prisma.badge.findFirst({ where: { id: pin.id, userId } });
+      if (!badge) throw new Error(`Badge with id ${pin.id} not found or does not belong to you`);
+
+      const stages = await prisma.badgeStage.findMany({ where: { badgeType: badge.badgeType } });
+      const stage1 = stages.find(s => s.stageOrder === 1);
+      const stats = await getUserStatsSnapshot(userId);
+      let currentVal = 0;
+      if (badge.badgeType === "STREAK") currentVal = stats.currentStreak;
+      else if (badge.badgeType === "CODING") currentVal = stats.problemsSolved;
+      else if (badge.badgeType === "BUILDER") currentVal = stats.tasksCompleted;
+
+      if (currentVal < (stage1 ? stage1.requirement : 0)) {
+        throw new Error(`You have not earned the ${badge.badgeType.toLowerCase()} badge yet!`);
+      }
+    } else {
+      throw new Error(`Invalid type ${pin.type}`);
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.userAchievementShowcase.deleteMany({
+      where: { userId }
+    }),
+    prisma.userAchievementShowcase.createMany({
+      data: pins.map((p, idx) => ({
+        userId,
+        type: p.type,
+        achievementId: p.type === "ACHIEVEMENT" ? p.id : null,
+        badgeId: p.type === "BADGE" ? p.id : null,
+        displayOrder: idx
+      }))
+    })
+  ]);
+
+  return true;
+}
+

@@ -81,6 +81,7 @@ model User {
   mentorRecognitions     MentorRecognition[]
   milestoneCelebrations  MilestoneCelebration[]
   xpTransactions         XPTransaction[]
+  showcases              UserAchievementShowcase[]
 }
 
 model Conversation {
@@ -319,19 +320,21 @@ enum XPTransactionSource {
 
 // Achievement System Models
 model Achievement {
-  id           String                @id @default(uuid())
-  title        String                @unique
-  description  String
-  category     AchievementCategory
-  rarity       AchievementRarity
-  visibility   AchievementVisibility @default(PUBLIC)
-  icon         String                // Emoji or Lucide icon name
-  xpReward     Int                   @default(0)
-  maxProgress  Int                   @default(1)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  id             String                @id @default(uuid())
+  title          String                @unique
+  description    String
+  category       AchievementCategory
+  rarity         AchievementRarity
+  visibility     AchievementVisibility @default(PUBLIC)
+  icon           String                // Emoji or Lucide icon name
+  xpReward       Int                   @default(0)
+  maxProgress    Int                   @default(1)
+  hiddenCriteria Json?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
-  progressions AchievementProgress[]
+  progressions   AchievementProgress[]
+  showcases      UserAchievementShowcase[]
 }
 
 model AchievementProgress {
@@ -359,6 +362,8 @@ model Badge {
   unlockedAt   DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  showcases    UserAchievementShowcase[]
 
   @@unique([userId, badgeType])
   @@index([userId])
@@ -431,6 +436,26 @@ model XPTransaction {
   createdAt DateTime            @default(now())
 
   @@index([userId])
+}
+
+enum ShowcaseItemType {
+  ACHIEVEMENT
+  BADGE
+}
+
+model UserAchievementShowcase {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          ShowcaseItemType
+  achievementId String?
+  achievement   Achievement?     @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  badgeId       String?
+  badge         Badge?           @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  displayOrder  Int              @default(0)
+  createdAt     DateTime         @default(now())
+
+  @@index([userId, displayOrder])
 }
 
 
