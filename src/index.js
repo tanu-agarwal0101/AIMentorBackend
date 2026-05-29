@@ -10,6 +10,7 @@ import submissionRoutes from "./routes/submissionRoutes.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
+import roadmapRoutes from "./routes/roadmapRoutes.js";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "./utils/passport.js";
@@ -45,6 +46,7 @@ app.use('/api/submissions', submissionRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/events', eventRoutes)
 app.use('/api/stats', statsRoutes)
+app.use('/api/roadmaps', roadmapRoutes)
 
 app.use(passport.initialize())
 app.use(passport.session())
