@@ -49,8 +49,6 @@ export async function getJourneySummary(userId) {
       return await generateJourneySummarySync(userId, "MONTHLY", joinDate);
     }
 
-    // Auto-generation is disabled as per user request. 
-    // Users must use the manual "Update Story" button to regenerate their growth narrative.
 
     return latest;
   } catch (error) {
@@ -106,7 +104,6 @@ export async function regenerateJourneySummary(userId, type = "MONTHLY") {
       await generateJourneySummarySync(userId, type, joinDate);
     }
   } catch (err) {
-    // Re-throw rate-limit errors as-is; wrap everything else with details
     if (err.message && err.message.includes("up to date")) throw err;
     console.error("[JOURNEY] regenerateJourneySummary failed:", err);
     throw err;

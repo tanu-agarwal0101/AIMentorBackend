@@ -14,12 +14,10 @@ import {
 
 const router = express.Router();
 
-// Problem API endpoints
 router.post("/import", authenticateJWT, optionalRateLimit, handleImportProblem);
 router.get("/", authenticateJWT, handleListProblems);
 router.get("/:id", authenticateJWT, handleGetProblem);
 
-// Coding Session API endpoints
 router.post("/sessions/create", authenticateJWT, handleCreateSession);
 router.get("/sessions/list", authenticateJWT, handleGetUserSessions);
 router.get("/sessions/:id", authenticateJWT, handleGetSession);

@@ -1,5 +1,4 @@
-import fetch from "node-fetch"; // or global fetch if Node >= 18
-
+import fetch from "node-fetch"; 
 const JDOODLE_URL = "https://api.jdoodle.com/v1/execute";
 
 const LANGUAGE_MAP = {
@@ -28,7 +27,7 @@ export async function executeCode(language, code, stdin) {
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
     const res = await fetch(JDOODLE_URL, {

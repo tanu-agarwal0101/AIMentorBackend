@@ -21,7 +21,6 @@ export function cleanOutput(text) {
  * @returns {object} Normalized result object.
  */
 export function normalizeExecutionResult(jdoodleResponse, expectedOutput) {
-  // 1. Check for infrastructure, authorization, or rate limit issues from provider
   const isProviderError = 
     !jdoodleResponse || 
     jdoodleResponse.statusCode === 403 || 
@@ -43,8 +42,6 @@ export function normalizeExecutionResult(jdoodleResponse, expectedOutput) {
   const outputStr = jdoodleResponse.output || "";
   const errorStr = jdoodleResponse.error || "";
 
-  // 1. Check for timeouts
-  // JDoodle typically outputs "Time Limit Exceeded"
   const isTimeout = outputStr.includes("Time Limit Exceeded") || errorStr.includes("Time Limit Exceeded");
   if (isTimeout) {
     return {
@@ -55,9 +52,6 @@ export function normalizeExecutionResult(jdoodleResponse, expectedOutput) {
       executionReliable: true
     };
   }
-
-  // 2. Check for compilation or runtime errors
-  // In JDoodle, if memory/cpuTime are null/empty, or output contains compiler/stacktrace keywords
   const outputLower = outputStr.toLowerCase();
   const isCompileError = 
     outputLower.includes("error:") || 
@@ -93,7 +87,6 @@ export function normalizeExecutionResult(jdoodleResponse, expectedOutput) {
     };
   }
 
-  // 3. Success Run - Compare outputs
   const cleanedActual = cleanOutput(outputStr);
   const cleanedExpected = cleanOutput(expectedOutput);
   

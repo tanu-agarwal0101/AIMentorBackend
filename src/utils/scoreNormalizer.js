@@ -10,9 +10,9 @@
  */
 export const normalizeScore = (val) => {
   const parsed = parseFloat(val);
-  if (isNaN(parsed)) return 5.0; // Default fallback
+  if (isNaN(parsed)) return 5.0; 
   const clamped = Math.max(0, Math.min(10, parsed));
-  return Math.round(clamped * 10) / 10; // Round to 1 decimal place
+  return Math.round(clamped * 10) / 10; 
 };
 
 /**
@@ -43,22 +43,18 @@ export const normalizeScores = (scores = {}) => {
  * based on payload completeness (hints used, chat depth, execution runs).
  */
 export const calculateConfidence = (payload = {}) => {
-  let confidence = 85; // Starting base confidence
+  let confidence = 85; 
 
-  // Lack of chat history decreases estimate slightly (less communication signals)
+
   if (!payload.chatHistory || payload.chatHistory.length < 2) {
     confidence -= 10;
   }
-
-  // Large code size increases complexity and decreases estimation certainty
   if (payload.code && payload.code.length > 3000) {
     confidence -= 5;
   }
-
-  // Having both passed and failed test cases yields high data certainty
   if (payload.failedTests?.length && payload.passedTests?.length) {
     confidence += 10;
   }
 
-  return Math.max(50, Math.min(99, confidence)); // Clamp between 50% and 99%
+  return Math.max(50, Math.min(99, confidence));
 };

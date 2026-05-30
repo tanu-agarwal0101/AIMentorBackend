@@ -40,7 +40,7 @@ app.use(
     })
 )
 app.use('/api/auth', authRoutes)
-// app.use("/api/chat", chatRoutes)
+app.use("/api/chat", chatRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/cody', codyRoutes)
 app.use('/api/interview-review', interviewReviewRoutes)
