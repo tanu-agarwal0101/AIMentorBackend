@@ -1,8 +1,6 @@
 import passport from "passport";
 import {Strategy as GoogleStrategy} from "passport-google-oauth20";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "./prisma.js";
 // console.log("Google ClientID:", process.env.OAUTH_CLIENT_ID);
 // console.log(
 //   "Google ClientSecret:",
@@ -16,24 +14,50 @@ passport.use(
     {
       clientID: process.env.OAUTH_CLIENT_ID,
       clientSecret: process.env.OAUTH_CLIENT_SECRET,
-      callbackURL: `http://localhost:5000/api/auth/google/callback`,
+      callbackURL: `${process.env.BACKEND_URL || "http://localhost:5000"}/api/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        const email = profile.emails[0].value.trim().toLowerCase();
+
         let user = await prisma.user.findUnique({
           where: { oauthId: profile.id },
         });
 
         if (!user) {
-          user = await prisma.user.create({
-            data: {
-              name: profile.displayName,
-              email: profile.emails[0].value,
-              oauthId: profile.id,
-              password: "",
-              provider: `google`,
-            },
+          const existingUser = await prisma.user.findUnique({
+            where: { email },
           });
+
+          if (existingUser) {
+            const isGoogleEmailVerified = profile._json && (profile._json.email_verified === true || profile._json.email_verified === "true");
+
+            if (isGoogleEmailVerified) {
+              user = await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  oauthId: profile.id,
+                  provider: "google",
+                  emailVerified: true,
+                  emailVerifiedAt: existingUser.emailVerifiedAt || new Date(),
+                },
+              });
+            } else {
+              return done(new Error("Unable to link account: Google email is not verified."), null);
+            }
+          } else {
+            user = await prisma.user.create({
+              data: {
+                name: profile.displayName,
+                email,
+                oauthId: profile.id,
+                password: null,
+                provider: "google",
+                emailVerified: true,
+                emailVerifiedAt: new Date(),
+              },
+            });
+          }
         }
         return done(null, user);
       } catch (error) {

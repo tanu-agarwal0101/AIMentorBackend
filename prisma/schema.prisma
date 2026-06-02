@@ -60,6 +60,12 @@ model User {
   provider      String?         // 'google', 'github', ...
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+  resetPasswordTokenHash String?   @unique
+  resetPasswordExpires    DateTime?
+  emailVerified           Boolean   @default(false)
+  emailVerifiedAt         DateTime?
+  emailVerificationTokenHash String? @unique
+  emailVerificationExpires DateTime?
 
   conversations Conversation[]
   codingSessions CodingSession[]
@@ -85,6 +91,7 @@ model User {
   monthlyRecaps          MonthlyRecap[]
   journeySummaries       JourneySummary[]
   timeCapsules           TimeCapsule[]
+  refreshTokens          RefreshToken[]
 }
 
 model Conversation {
@@ -520,6 +527,26 @@ model TimeCapsule {
   statsSnapshot    Json?     // { level: Int, streak: Int, tasks: Int, problems: Int }
 
   @@index([userId])
+}
+
+model RefreshToken {
+  id           String         @id @default(uuid())
+  tokenHash    String         @unique
+  familyId     String
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  createdAt    DateTime       @default(now())
+  revoked      Boolean        @default(false)
+  replacedById String?        @unique
+  replacedBy   RefreshToken?  @relation("TokenLineage", fields: [replacedById], references: [id])
+  replacedByOf RefreshToken?  @relation("TokenLineage")
+  userAgent    String?
+  ipAddress    String?
+
+  @@index([expiresAt])
+  @@index([userId])
+  @@index([familyId])
 }
 
 

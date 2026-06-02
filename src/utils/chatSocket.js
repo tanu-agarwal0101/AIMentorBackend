@@ -1,10 +1,9 @@
 import { getAIResponse } from "../services/aiService.js";
 import { socketAsyncHandler } from "./asyncHandler.js";
-import { PrismaClient } from "@prisma/client";
+import prisma from "./prisma.js";
 
 export function registerChatHandlers(io, socket) {
   console.log("User connected:", socket.user.id);
-  const prisma = new PrismaClient();
 
   // socket.on(
   //   "sendMessage",

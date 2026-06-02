@@ -20,14 +20,15 @@ import passport from "./utils/passport.js";
 import http from "http"
 import { Server } from "socket.io"
 import { registerChatHandlers } from "./utils/chatSocket.js";
-import { socketAuth } from "./middlewares/authMiddleware.js";
+import { socketAuth, authenticateJWT, requireEmailVerified } from "./middlewares/authMiddleware.js";
+import helmet from "helmet";
 
 
 const app = express();
+app.use(helmet());
 app.use(cors({
     origin: process.env.FRONTEND_URL,
     credentials: true,
-    saveUninitialized: false,
 }));
 app.use(express.json())
 app.use(cookieParser())
@@ -36,25 +37,25 @@ app.use(
     session({
         secret: process.env.SESSION_SECRET || "secret",
         resave: false,
-        saveUninitialized: true, 
+        saveUninitialized: false, 
     })
 )
-app.use('/api/auth', authRoutes)
-app.use("/api/chat", chatRoutes)
-app.use('/api/user', userRoutes)
-app.use('/api/cody', codyRoutes)
-app.use('/api/interview-review', interviewReviewRoutes)
-app.use('/api/problems', problemRoutes)
-app.use('/api/submissions', submissionRoutes)
-app.use('/api/feedback', feedbackRoutes)
-app.use('/api/events', eventRoutes)
-app.use('/api/stats', statsRoutes)
-app.use('/api/roadmaps', roadmapRoutes)
-app.use('/api/achievements', achievementRoutes)
-app.use('/api/reflections', reflectionRoutes)
-
 app.use(passport.initialize())
 app.use(passport.session())
+
+app.use('/api/auth', authRoutes)
+app.use("/api/chat", authenticateJWT, requireEmailVerified, chatRoutes)
+app.use('/api/user', userRoutes)
+app.use('/api/cody', authenticateJWT, requireEmailVerified, codyRoutes)
+app.use('/api/interview-review', authenticateJWT, requireEmailVerified, interviewReviewRoutes)
+app.use('/api/problems', authenticateJWT, requireEmailVerified, problemRoutes)
+app.use('/api/submissions', authenticateJWT, requireEmailVerified, submissionRoutes)
+app.use('/api/feedback', authenticateJWT, requireEmailVerified, feedbackRoutes)
+app.use('/api/events', authenticateJWT, requireEmailVerified, eventRoutes)
+app.use('/api/stats', authenticateJWT, requireEmailVerified, statsRoutes)
+app.use('/api/roadmaps', authenticateJWT, requireEmailVerified, roadmapRoutes)
+app.use('/api/achievements', authenticateJWT, requireEmailVerified, achievementRoutes)
+app.use('/api/reflections', authenticateJWT, requireEmailVerified, reflectionRoutes)
 
 
 const server = http.createServer(app)

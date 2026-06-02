@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../utils/prisma.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { getAIResponse, generateTitle } from "../services/aiService.js";
-
-const prisma = new PrismaClient();
 
 const getConversations = asyncHandler(async (req, res) => {
   const userId = req.user.id;
