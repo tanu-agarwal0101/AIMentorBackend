@@ -1,7 +1,7 @@
 import prisma from "../utils/prisma.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import crypto from "crypto";
-import { sendVerificationEmail } from "../services/emailService.js";
+import { sendEmailChangeVerification } from "../services/emailService.js";
 
 const getProfile = asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
@@ -75,9 +75,9 @@ const updateProfile = asyncHandler(async (req, res) => {
         });
 
         try {
-            await sendVerificationEmail(normalizedEmail, rawVerificationToken);
+            await sendEmailChangeVerification(normalizedEmail, rawVerificationToken);
         } catch (emailErr) {
-            console.error("[UPDATE PROFILE] Failed to send verification email:", emailErr);
+            console.error("[UPDATE PROFILE] Failed to send email change verification:", emailErr);
         }
 
         return res.status(200).json({

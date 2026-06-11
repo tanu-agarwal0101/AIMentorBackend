@@ -16,40 +16,6 @@ datasource db {
 
 // If you sometimes allow multiple providers(different OAuth services (Google, GitHub, Facebook, etc) per email, you may want email not unique and instead create a compound unique on (provider, oauthId).
 
-// model User {
-//   id            String          @id @default(uuid())
-//   name          String
-//   email         String          @unique
-//   password      String?
-//   oauthId       String?         @unique
-//   provider      String?         // e.g., 'google', 'github'
-//   createdAt     DateTime        @default(now())
-//   updatedAt     DateTime        @updatedAt
-
-//   // One-to-many: User → Conversations
-//   conversations Conversation[]
-// }
-
-// model Conversation {
-//   id        String   @id @default(uuid())
-//   userId    String
-//   user      User     @relation(fields: [userId], references: [id])
-//   title     String   @default("New Chat")
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   chats     Chat[]
-// }
-
-// model Chat {
-//   id             String        @id @default(uuid())
-//   conversationId String
-//   conversation   Conversation  @relation(fields: [conversationId], references: [id])
-//   message        String        // user’s input
-//   response       String        // AI’s reply
-//   createdAt      DateTime      @default(now())
-// }
-
 
 model User {
   id            String         @id @default(uuid())
