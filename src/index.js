@@ -17,6 +17,7 @@ import { seedAchievementsAndBadges } from "./services/achievementService.js";
 import { verifySmtpConnection } from "./services/emailService.js";
 import cookieParser from "cookie-parser";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "./utils/passport.js";
 import http from "http"
 import { Server } from "socket.io"
@@ -24,6 +25,7 @@ import { registerChatHandlers } from "./utils/chatSocket.js";
 import { socketAuth, authenticateJWT, requireEmailVerified } from "./middlewares/authMiddleware.js";
 import helmet from "helmet";
 
+const PgStore = connectPgSimple(session);
 
 const app = express();
 app.set("trust proxy", 1); 
@@ -34,6 +36,7 @@ app.use(cors({
 }));
 app.use(express.json())
 app.use(cookieParser())
+app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
 if (process.env.NODE_ENV === "production" && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === "secret")) {
     console.warn("WARNING: SESSION_SECRET is not securely set in production!");
@@ -41,6 +44,11 @@ if (process.env.NODE_ENV === "production" && (!process.env.SESSION_SECRET || pro
 
 app.use(
     session({
+        store: new PgStore({
+            conString: process.env.DATABASE_URL,
+            createTableIfMissing: true, 
+            pruneSessionInterval: 60 * 15,
+        }),
         name: "ai_mentor_oauth_sid", 
         secret: process.env.SESSION_SECRET || "secret",
         resave: false,
