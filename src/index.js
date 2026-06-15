@@ -26,19 +26,31 @@ import helmet from "helmet";
 
 
 const app = express();
+app.set("trust proxy", 1); 
 app.use(helmet());
 app.use(cors({
     origin: process.env.FRONTEND_URL,
-    credentials: true,
+    credentials: true, 
 }));
 app.use(express.json())
 app.use(cookieParser())
 
+if (process.env.NODE_ENV === "production" && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === "secret")) {
+    console.warn("WARNING: SESSION_SECRET is not securely set in production!");
+}
+
 app.use(
     session({
+        name: "ai_mentor_oauth_sid", 
         secret: process.env.SESSION_SECRET || "secret",
         resave: false,
         saveUninitialized: false, 
+        cookie: {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production", 
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", 
+            maxAge: 1000 * 60 * 15, 
+        }
     })
 )
 app.use(passport.initialize())
